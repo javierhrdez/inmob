@@ -28,6 +28,7 @@
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
     <link rel="stylesheet" type="text/css" href="{% static 'bootstrap-4.2.1-dist/css/grid.css' %}">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 
     {% leaflet_js %}
@@ -40,16 +41,16 @@
         <h1>Inmobiliaria</h1>
         <p class="lead">Busque aquí su propiedad.</p>
       
-        <form>
+        <form id="searchform">
           <div class="form-group">
-            <input class="form-control form-control-lg" type="text" placeholder="Buscar...">
+            <input id="address" class="form-control form-control-lg" type="text" placeholder="Buscar...">
           </div>          
 
           <div class="form-group">
               <label for="formControlRange">Rango en Kms</label>
               <input type="range" class="form-control-range" id="formControlRange">
           </div>
-          <button type="submit" class="btn btn-primary">Buscar</button>
+          <button id="myButton" type="submit" class="btn btn-primary">Buscar</button>
         </form>
 
     
@@ -60,43 +61,23 @@
         <script type="text/javascript">
           var dataurl_ageb = '{% url "ageb" %}';
           var dataurl_propiedades = '{% url "propiedades" %}';
-          var dataurl_buffer = '{% url "buffer" %}';
-
-
-
+          var dataurl_ageb_buffer = '{% url "ageb_buffer" %}';
+          var dataurl_prop_buffer = '{% url "propiedades_buffer" %}';
 
           window.addEventListener("map:init", function (event) {
             var map = event.detail.map;
-            // Download GeoJSON data with Ajax
-            /*
-            fetch(dataurl0)
-              .then(function(resp) {
-                return resp.json();
-              })
-              .then(function(data) {
-                L.geoJson(data).addTo(propiedades);
 
-                 function onEachFeature(feature, layer) {
-                  if (feature.properties && feature.properties.title) {
-                    title = feature.properties.title;
-                  }
-
-                  layer.bindPopup("<p>Precio:"+title + "</p>");
-                }
-
-                    L.geoJSON(data, {
-                    pointToLayer: function (feature, latlng) {
-                      return L.marker(latlng);
-                    },
-                    onEachFeature: onEachFeature
-                    }).addTo(map);
-
-              });
-              */
-
+              var houseIcon = L.icon({
+              iconUrl: "{% static '/icons/house.png' %}",
+              iconSize: [32, 32],
+              iconAnchor: [16, 37],
+              popupAnchor: [0, -28]
+            });
+                
               var propiedades = L.layerGroup();
               var ageb = L.layerGroup();
-              var buffer = L.layerGroup();
+              var ageb_buffer = L.layerGroup();
+              var prop_buffer = L.layerGroup();
 
               fetch(dataurl_ageb).then(function(response){ 
                       return response.json()
@@ -107,14 +88,36 @@
               fetch(dataurl_propiedades).then(function(response){
                       return response.json()
               }).then(function(data) {
-                L.geoJson(data).addTo(propiedades);
+                L.geoJson(data).addTo(propiedades,{
+                  pointToLayer: function (feature, latlng) {
+                    return L.circleMarker(latlng, {
+                      radius: 8,
+                      fillColor: "#ff7800",
+                      color: "#000",
+                      weight: 1,
+                      opacity: 1,
+                      fillOpacity: 0.8
+                    });
+                  }
+                });  
               });
-
-              fetch(dataurl_buffer).then(function(response){
+              /*
+              fetch(dataurl_ageb_buffer).then(function(response){
                       return response.json()
               }).then(function(data) {
-                L.geoJson(data).addTo(buffer);
+                console.log(data);
+                L.geoJson(data).addTo(ageb_buffer);
               });
+
+              
+              fetch(dataurl_prop_buffer).then(function(response){
+                      return response.json()
+              }).then(function(data) {
+                console.log(data);
+                L.geoJson(data).addTo(prop_buffer);
+              });
+              */
+
 
             var popup = L.popup();
             function onMapClick(e) {
@@ -141,22 +144,106 @@
 
             //map.locate({setView: true, maxZoom: 16});
 
-
+            
             var baseLayers = {
-              "Ageb": ageb,
-              "Buffer": buffer
+              "Todos AGEB": ageb,
+              "Buffer AGEB": ageb_buffer
+
             };
 
 
             var overlays = {
-              "Propiedades": propiedades
+              "Todas Propiedades": propiedades,
+              "Buffer Propiedades": prop_buffer
             };
+            
 
 
             L.control.layers(baseLayers, overlays).addTo(map);
+            //L.control.layers(overlays).addTo(map);
+
+
+
+            $('#myButton').on('click', function(event) {
+            event.preventDefault(); // To prevent following the link (optional)
+
+          });
+          $('#myButton').on('click', function(event) {
+            event.preventDefault(); // To prevent following the link (optional)
+            var formData = {
+              'address': $('input[id=address]').val()
+            };
+            $.ajax({
+                  type: "GET",
+                  url: '{% url "geocoding" %}',
+                  data: formData,
+                  success: function (data)
+                  {
+                    console.log(data);
+                   
+                    L.marker([data.lat, data.lon]).addTo(map);
+                    map.panTo(new L.LatLng(data.lat, data.lon));
+                    console.log(dataurl_ageb_buffer+'?lat=' + data.lat + '&lon=' + data.lon);
+                    fetch(dataurl_ageb_buffer+'?lat=' + data.lat + '&lon=' + data.lon).then(function(response){
+                            return response.json()
+                    }).then(function(data) {
+                      console.log(data);
+                      ageb_buffer.clearLayers();
+                      L.geoJson(data).addTo(ageb_buffer);
+                    });
+
+                    /*
+                    fetch(dataurl_prop_buffer+'?lat=' + data.lat + '&lon=' + data.lon).then(function(response){
+                            return response.json()
+                    }).then(function(data) {
+                      console.log(data);
+                      prop_buffer.clearLayers();
+                      L.geoJson(data).addTo(prop_buffer);
+                    });
+                    */
+
+
+
+                    fetch(dataurl_prop_buffer+'?lat=' + data.lat + '&lon=' + data.lon)
+                      .then(function(resp) {
+                        return resp.json();
+                      })
+                      .then(function(data) {
+                        L.geoJson(data).addTo(propiedades);
+                        function onEachFeature(feature, layer) {
+                          if (feature.properties && feature.properties.precio && feature.properties.precio_ref) {
+                            precio = feature.properties.precio;
+                            precio_ref = feature.properties.precio_ref;
+                          }
+                          layer.bindPopup("<p><i class='fas fa-home'  style='color:black;'></i> Precio Real:"+precio + "</p><p><i class='fas fa-home'  style='color:black;'></i> Precio Referencia : " + precio_ref +"</p>");
+                        }
+                            L.geoJSON(data, {
+                            pointToLayer: function (feature, latlng) {
+                              return L.marker(latlng);
+                            },
+                            onEachFeature: onEachFeature
+                            }).addTo(map);
+                      });
+              
+
+
+
+                  }
+              });
+          });
+
+
+
+
+
+
 
 
           });
+
+
+
+
         </script>
       
         <hr class="my-4">
