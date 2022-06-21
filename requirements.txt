@@ -24,7 +24,7 @@ mccabe==0.6.1
 mkl-fft==1.0.10
 mkl-random==1.0.2
 munch==2.3.2
-numpy==1.15.4
+numpy==1.22.0
 pandas==0.24.1
 psycopg2==2.7.6.1
 pylint==2.2.2
